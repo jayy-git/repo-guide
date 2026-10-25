@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from repository_qa import answer_repository_question
+from backend.repository_qa import answer_repository_question
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]

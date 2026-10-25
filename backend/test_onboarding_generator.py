@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from onboarding_generator import generate_onboarding_document
+from backend.onboarding_generator import generate_onboarding_document
 
 
 # Locate the main project directory.

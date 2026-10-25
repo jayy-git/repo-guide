@@ -1,5 +1,5 @@
 from pathlib import Path
-from repository_summary import generate_repository_summary
+from backend.repository_summary import generate_repository_summary
 
 project_root = Path(__file__).resolve().parents[1]
 

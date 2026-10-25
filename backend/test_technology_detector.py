@@ -1,5 +1,5 @@
 from pathlib import Path
-from technology_detector import detect_technology_stack
+from backend.technology_detector import detect_technology_stack
 
 project_root = Path(__file__).resolve().parents[1]
 

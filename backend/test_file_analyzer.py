@@ -1,5 +1,5 @@
 from pathlib import Path
-from file_analyzer import analyze_important_files
+from backend.file_analyzer import analyze_important_files
 
 project_root = Path(__file__).resolve().parents[1]
 

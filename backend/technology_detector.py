@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from repository_analyzer import IGNORED_DIRECTORIES
+from backend.repository_analyzer import IGNORED_DIRECTORIES
 
 def detect_technology_stack(repository_path):
     """Detect technologies using repository files and configuration."""

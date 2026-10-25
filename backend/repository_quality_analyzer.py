@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from repository_analyzer import scan_repository
-from quality_checks import check_repository
+from backend.repository_analyzer import scan_repository
+from backend.quality_checks import check_repository
 
 
 def analyze_repository_quality(repository_path):

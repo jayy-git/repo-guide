@@ -14,7 +14,7 @@ Test suite verifying all 8 organization and structure analysis capabilities:
 
 import unittest
 from pathlib import Path
-from organization_analyzer import (
+from backend.organization_analyzer import (
     analyze_directories,
     classify_files,
     detect_project_conventions,

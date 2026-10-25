@@ -10,7 +10,7 @@ Tests for Person A's repository_analyzer module:
 from pathlib import Path
 from unittest.mock import patch
 import pytest
-from repository_analyzer import analyze_repository, scan_repository, parse_github_url
+from backend.repository_analyzer import analyze_repository, scan_repository, parse_github_url
 
 def test_language_api_failure_is_reported():
     with patch(

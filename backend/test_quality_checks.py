@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from quality_checks import analyze_code_quality, check_repository
+from backend.quality_checks import analyze_code_quality, check_repository
 
 
 class TestQualityChecks(unittest.TestCase):

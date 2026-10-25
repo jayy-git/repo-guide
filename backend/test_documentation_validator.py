@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from documentation_validator import validate_documentation
+from backend.documentation_validator import validate_documentation
 
 
 class TestDocumentationValidator(unittest.TestCase):

@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from repository_summary import generate_repository_summary
-from documentation_validator import validate_documentation
+from backend.repository_summary import generate_repository_summary
+from backend.documentation_validator import validate_documentation
 
 
 def generate_onboarding_document(repository_path):

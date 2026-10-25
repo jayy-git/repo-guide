@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from repository_analyzer import scan_repository
+from backend.repository_analyzer import scan_repository
 
 
 def check_repository(repo_data):

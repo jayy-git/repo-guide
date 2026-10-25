@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from dependency_analyzer import analyze_dependencies
+from backend.dependency_analyzer import analyze_dependencies
 
 
 class TestDependencyAnalyzer(unittest.TestCase):

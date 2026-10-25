@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from repository_analyzer import scan_repository
-from technology_detector import detect_technology_stack
-from file_analyzer import analyze_important_files
-from dependency_analyzer import analyze_dependencies
-from code_relationship_analyzer import analyze_code_relationships
+from backend.repository_analyzer import scan_repository
+from backend.technology_detector import detect_technology_stack
+from backend.file_analyzer import analyze_important_files
+from backend.dependency_analyzer import analyze_dependencies
+from backend.code_relationship_analyzer import analyze_code_relationships
 
 
 

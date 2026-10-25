@@ -1,4 +1,4 @@
-"""
+﻿"""
 bug_analyzer.py
 ===============
 Role: Backend Bug-Detection and Code-Improvement Engine
@@ -21,8 +21,9 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import urllib.error
 import urllib.parse
 import urllib.request
+from backend.javascript_analyzer import analyze_javascript_repository
 
-from repository_analyzer import scan_repository
+from backend.repository_analyzer import scan_repository
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +251,7 @@ class CodeBugVisitor(ast.NodeVisitor):
                     )
         self.generic_visit(node)
 
-    # Rule 4: Resource Leak — open() called without with statement
+    # Rule 4: Resource Leak â€” open() called without with statement
     def visit_With(self, node: ast.With):
         self._inside_with_open = True
         self.generic_visit(node)
@@ -473,7 +474,7 @@ def calculate_code_health_score(findings: List[Dict[str, Any]], total_files: int
     Penalizes according to finding severity.
     """
     if total_files == 0:
-        return 100
+        return None
 
     deductions = 0
     for finding in findings:
@@ -552,18 +553,69 @@ def analyze_repository_bugs(
             if sev in severity_breakdown:
                 severity_breakdown[sev] += 1
 
-    health_score = calculate_code_health_score(all_findings, len(analyzed_files))
+        # Analyze JavaScript and TypeScript files separately.
+    js_results = analyze_javascript_repository(str(root))
+    js_findings = js_results.get("javascript_findings", [])
+    # Combine findings from both analyzers.
+    combined_findings = all_findings + js_findings
+
+    combined_severity_breakdown = {
+        "Critical": 0,
+        "High": 0,
+        "Medium": 0,
+        "Low": 0,
+        "Info": 0,
+    }
+
+    for finding in combined_findings:
+        severity = finding.get("severity", "Low")
+        if severity in combined_severity_breakdown:
+            combined_severity_breakdown[severity] += 1
+
+    total_analyzed_files = len(analyzed_files) + js_results.get(
+        "total_javascript_files", 0
+    )
+
+    health_score = (
+        calculate_code_health_score(combined_findings, total_analyzed_files)
+        if total_analyzed_files > 0
+        else None
+    )
 
     return {
         "repository_name": root.name,
         "repository_path": str(root),
+
+        # Python analysis
         "total_python_files": len(analyzed_files),
         "total_python_lines": total_python_lines,
-        "total_findings": len(all_findings),
+
+        # JavaScript and TypeScript analysis
+        "total_javascript_files": js_results.get("total_javascript_files", 0),
+        "total_javascript_lines": js_results.get("total_javascript_lines", 0),
+        "javascript_files_analyzed": js_results.get(
+            "javascript_files_analyzed", []
+        ),
+        "javascript_scan_status": js_results.get(
+            "javascript_scan_status", "unknown"
+        ),
+
+        # Combined analysis
+        "total_analyzed_files": total_analyzed_files,
+        "total_findings": len(combined_findings),
         "health_score": health_score,
-        "severity_breakdown": severity_breakdown,
-        "file_summaries": file_summaries,
-        "findings": all_findings,
+        "severity_breakdown": combined_severity_breakdown,
+        "file_summaries": {
+            **file_summaries,
+            **{
+                path: sum(
+                    1 for finding in js_findings
+                    if finding.get("file") == path
+                )
+                for path in js_results.get("javascript_files_analyzed", [])
+            },
+        },
+        "findings": combined_findings,
     }
 
 
@@ -574,10 +626,17 @@ def analyze_repository_bugs(
 def generate_bug_report_markdown(analysis_results: Dict[str, Any]) -> str:
     """Generate a structured Markdown report of bug findings."""
     repo_name = analysis_results.get("repository_name", "Python Project")
-    health = analysis_results.get("health_score", 100)
+    health = analysis_results.get("health_score")
+    health_display = f"{health}/100" if health is not None else "N/A (no Python files analyzed)"
     total_findings = analysis_results.get("total_findings", 0)
     py_files = analysis_results.get("total_python_files", 0)
     py_lines = analysis_results.get("total_python_lines", 0)
+    js_files = analysis_results.get("total_javascript_files", 0)
+    js_lines = analysis_results.get("total_javascript_lines", 0)
+    js_status = analysis_results.get("javascript_scan_status", "not_run")
+    total_analyzed = analysis_results.get(
+        "total_analyzed_files", py_files + js_files
+    )
     breakdown = analysis_results.get("severity_breakdown", {})
     findings = analysis_results.get("findings", [])
 
@@ -585,8 +644,10 @@ def generate_bug_report_markdown(analysis_results: Dict[str, Any]) -> str:
         "# RepoGuide - Code Quality & Bug Detection Report",
         "",
         f"**Repository:** `{repo_name}`  ",
-        f"**Code Health Score:** `{health}/100`  ",
+        f"**Code Health Score:** `{health_display}`  ",
         f"**Python Files Analyzed:** `{py_files}` ({py_lines:,} lines of code)  ",
+        f"**JavaScript/TypeScript Files Analyzed:** `{js_files}` ({js_lines:,} lines of code)  ",
+        f"**JavaScript/TypeScript Scan Status:** `{js_status}`  ",
         f"**Total Findings:** `{total_findings}`  ",
         "",
         "## Severity Breakdown",
@@ -598,12 +659,12 @@ def generate_bug_report_markdown(analysis_results: Dict[str, Any]) -> str:
         "",
         "## Scoring System & Severity Guide",
         "",
-        "| Severity | Penalty | Description | Patterns Detected |",
-        "| :--- | :---: | :--- | :--- |",
-        "| **Critical** | **-20 pts** | Confirmed compilation/syntax failure. Python cannot execute the file. | `SyntaxError` |",
-        "| **High** | **-10 pts** | High risk of runtime crash or socket/file resource exhaustion. | `open()` without `with`, bare `except:` |",
-        "| **Medium** | **-5 pts** | Silent bug traps and cross-call state pollution. | Mutable defaults (`[]`, `{}`), swallowed errors (`except: pass`) |",
-        "| **Low** | **-2 pts** | Code style, PEP 8 identity checks, and namespace hygiene. | `== None` vs `is None`, shadowing built-in names (`list`, `dict`) |",
+       "| Severity | Penalty | Description |",
+       "| :--- | :---: | :--- |",
+       "| **Critical** | **-20 pts** | Critical issues identified by the applicable analyzer. |",
+       "| **High** | **-10 pts** | High-priority findings that warrant prompt review. |",
+       "| **Medium** | **-5 pts** | Potential bugs or maintainability concerns. |",
+       "| **Low** | **-2 pts** | Lower-priority code-quality or style findings. |",
         "",
         "---",
         "",
@@ -611,29 +672,57 @@ def generate_bug_report_markdown(analysis_results: Dict[str, Any]) -> str:
         "",
     ]
 
-    if not findings:
-        lines.append("**No code-level bugs or anti-patterns detected! Clean code.**")
+    if total_analyzed == 0:
+        lines.append(
+            "**No supported source files were analyzed. "
+            "This report does not establish that the repository is bug-free.**"
+        )
+    elif not findings:
+        lines.append(
+            "**No findings were reported for the analyzed source files. "
+            "This does not guarantee that the repository is bug-free.**"
+        )
     else:
         severity_icons = {
             "Critical": "[CRITICAL]",
             "High": "[HIGH]",
             "Medium": "[MEDIUM]",
             "Low": "[LOW]",
+            "Info": "[INFO]",
         }
 
         for idx, finding in enumerate(findings, 1):
             severity = finding.get("severity", "Unknown")
             sev_icon = severity_icons.get(severity, "[INFO]")
+            filename = finding.get("file", "unknown")
+            extension = Path(filename).suffix.lower()
+
+            language = (
+                "python" if extension == ".py"
+                else "typescript" if extension in {".ts", ".tsx", ".mts", ".cts"}
+                else "javascript" if extension in {".js", ".jsx", ".mjs", ".cjs"}
+                else ""
+            )
+
+            code_fence = language or "text"
+
+            confirmed_error = (
+                "No (Heuristic / Potential)"
+                if finding.get("is_potential")
+                else "Yes (Reported by analyzer)"
+            )
 
             lines.extend([
-                f"### {idx}. {sev_icon} [{severity}] {finding.get('title', 'Untitled finding')}",
+                f"### {idx}. {sev_icon} [{severity}] "
+                f"{finding.get('title', 'Untitled finding')}",
                 "",
-                f"- **Location:** `{finding.get('file', 'unknown')}:{finding.get('line', '?')}` (col {finding.get('column', '?')})",
+                f"- **Location:** `{filename}:{finding.get('line', '?')}` "
+                f"(col {finding.get('column', '?')})",
                 f"- **Category:** `{finding.get('category', 'Uncategorized')}`",
-                f"- **Confirmed Error:** `{'No (Heuristic / Potential)' if finding.get('is_potential') else 'Yes (Compilation Error)'}`",
+                f"- **Confirmed Error:** `{confirmed_error}`",
                 "",
-                "**Offending Code:**",
-                "```python",
+                "**Offending Code / Rule:**",
+                f"```{code_fence}",
                 finding.get("evidence") or "# Evidence unavailable",
                 "```",
                 "",
@@ -645,8 +734,8 @@ def generate_bug_report_markdown(analysis_results: Dict[str, Any]) -> str:
             proposed_fix = finding.get("proposed_fix")
             if proposed_fix:
                 lines.extend([
-                    "**Proposed Fix:**",
-                    "```python",
+                    "**Suggested Fix:**",
+                    f"```{code_fence}",
                     proposed_fix,
                     "```",
                     "",
@@ -654,16 +743,24 @@ def generate_bug_report_markdown(analysis_results: Dict[str, Any]) -> str:
 
             lines.extend(["---", ""])
 
-    lines.extend([
+        lines.extend([
         "## Recommended Next Steps",
         "",
-        "1. Prioritize **Critical** syntax errors before running or testing.",
-        "2. Wrap all `open()` calls in `with` context managers to prevent resource leaks.",
-        "3. Replace mutable defaults (`[]`, `{}`) with `None` to prevent cross-call state leakage.",
-        "4. Replace bare `except:` clauses with explicit exception types.",
+        "1. Review Critical and High severity findings first.",
+        "2. Inspect each finding in its reported file and line.",
+        "3. Review suggested fixes before applying them.",
+        "4. Run the repository's tests after making changes.",
         "",
-        "*Generated automatically by RepoGuide Bug-Detection Engine.*",
     ])
+
+    if js_files and js_status != "completed":
+        lines.extend([
+            "**Note:** JavaScript/TypeScript analysis did not complete successfully. "
+            "The absence of findings from that scanner must not be interpreted as a clean scan.",
+            "",
+        ])
+
+    lines.append("*Generated automatically by RepoGuide Bug-Detection Engine.*")
 
     return "\n".join(lines)
 
@@ -712,4 +809,7 @@ if __name__ == "__main__":
                 print("\nClean repository! No bugs detected.")
     except Exception as exc:
         print(f"Error scanning '{target}': {exc}")
+
+
+
 

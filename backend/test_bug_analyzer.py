@@ -9,7 +9,7 @@ empty/invalid file handling, and repository scanning.
 import unittest
 from pathlib import Path
 
-from bug_analyzer import (
+from backend.bug_analyzer import (
     analyze_python_code,
     analyze_repository_bugs,
     calculate_code_health_score,

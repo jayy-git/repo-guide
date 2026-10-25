@@ -29,7 +29,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from organization_analyzer import analyze_organization
+from backend.organization_analyzer import analyze_organization
 
 # =====================================================================
 # PART 1: Online GitHub Repository Analyzer (Person A Core Assignment)

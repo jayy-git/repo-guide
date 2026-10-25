@@ -23,7 +23,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from repository_quality_analyzer import analyze_repository_quality
 from repository_analyzer import scan_repository
 from repository_qa import answer_repository_question
-from bug_analyzer import (
+from backend.bug_analyzer import (
     analyze_python_code,
     analyze_repository_bugs,
     generate_bug_report_markdown,
@@ -689,4 +689,5 @@ def get_repository_file_content(request: Request, repository_path: str = ".", fi
     finally:
         if temp_context is not None:
             temp_context.cleanup()
+
 

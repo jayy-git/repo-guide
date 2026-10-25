@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from code_relationship_analyzer import analyze_code_relationships
+from backend.code_relationship_analyzer import analyze_code_relationships
 
 
 class TestCodeRelationshipAnalyzer(unittest.TestCase):

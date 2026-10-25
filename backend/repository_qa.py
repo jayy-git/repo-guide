@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from repository_summary import generate_repository_summary
-from repository_quality_analyzer import analyze_repository_quality
-from bug_analyzer import analyze_repository_bugs
+from backend.repository_summary import generate_repository_summary
+from backend.repository_quality_analyzer import analyze_repository_quality
+from backend.bug_analyzer import analyze_repository_bugs
 
 
 def answer_repository_question(repository_path, question):
