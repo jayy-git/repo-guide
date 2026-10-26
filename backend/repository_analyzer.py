@@ -281,7 +281,7 @@ IGNORED_DIRECTORIES = {
 }
 
 IGNORED_FILES = {
-    ".env", ".env.local", ".env.development", ".env.production", "ONBOARDING.md",
+    "ONBOARDING.md",
 }
 
 IGNORED_SUFFIXES = {
@@ -311,10 +311,10 @@ def scan_repository(repository_path):
         for filename in filenames:
             path = current_path / filename
 
-            if filename in IGNORED_FILES or filename.endswith(tuple(IGNORED_SUFFIXES)):
+            if filename in IGNORED_FILES or filename.lower().startswith(".env") or filename.endswith(tuple(IGNORED_SUFFIXES)):
                 continue
 
-            if filename.startswith(".env.") or path.suffix.lower() in {".pem", ".key"}:
+            if path.suffix.lower() in {".pem", ".key", ".p12", ".pfx"} or filename.lower() in {"id_rsa", "id_ed25519", "credentials.json"}:
                 continue
 
             relative_path = path.relative_to(root)

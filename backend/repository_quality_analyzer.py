@@ -3,7 +3,6 @@ from pathlib import Path
 from backend.repository_analyzer import scan_repository
 from backend.quality_checks import check_repository
 
-
 def analyze_repository_quality(repository_path):
     """Scan a repository and return its quality findings."""
 

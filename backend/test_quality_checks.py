@@ -234,7 +234,7 @@ class TestQualityChecks(unittest.TestCase):
                     self.assertIsNone(report["findings"][0]["line_number"])
                     self.assertTrue(report["findings"][0]["recommendation"])
 
-    def test_missing_ruff_is_reported_without_aborting_analysis(self):
+    def test_missing_ruff_uses_fallback_without_aborting_analysis(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             (root / "sample.py").write_text(
@@ -249,22 +249,15 @@ class TestQualityChecks(unittest.TestCase):
             )
 
             with patch(
-                "quality_checks.subprocess.run",
+                "backend.quality_checks.subprocess.run",
                 return_value=missing_ruff,
             ):
                 report = analyze_code_quality(root)
 
-        tool_findings = [
-            finding
-            for finding in report["findings"]
-            if finding["category"] == "Tool"
-        ]
-        self.assertTrue(any(
-            "Ruff is not installed" in finding["explanation"]
-            for finding in tool_findings
-        ))
+        self.assertEqual(report["files_analyzed"], 1)
+        self.assertFalse(any(finding["category"] == "Tool" for finding in report["findings"]))
 
-    def test_missing_radon_is_reported_without_aborting_analysis(self):
+    def test_missing_radon_uses_fallback_without_aborting_analysis(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             (root / "sample.py").write_text(
@@ -282,15 +275,8 @@ class TestQualityChecks(unittest.TestCase):
             ):
                 report = analyze_code_quality(root)
 
-        tool_findings = [
-            finding
-            for finding in report["findings"]
-            if finding["category"] == "Tool"
-        ]
-        self.assertTrue(any(
-            "Radon is not installed" in finding["explanation"]
-            for finding in tool_findings
-        ))
+        self.assertEqual(report["files_analyzed"], 1)
+        self.assertFalse(any(finding["category"] == "Tool" for finding in report["findings"]))
 
 
 if __name__ == "__main__":

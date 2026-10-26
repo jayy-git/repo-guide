@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "./App.css";
 
-const API_URL = "http://localhost:8000";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const SAMPLE_BUGGY_CODE = `# Sample Python code with classic bug patterns\ndef process_data(items=[], config={}):\n    file = open("output.log", "w")\n    file.write("Processing started\\n")\n\n    if items == None:\n        return None\n        print("Unreachable code after return")\n\n    try:\n        total = 100 / len(items)\n    except:\n        pass\n\n    return total\n`;
 
 const NAV_ITEMS = [
@@ -14,6 +17,20 @@ const NAV_ITEMS = [
   { id: "reports", label: "Reports", icon: "▤" },
   { id: "settings", label: "Settings", icon: "⚙" },
 ];
+
+function TechnologyStackPanel({ stack, title = "Technology Stack" }) {
+  const groups = [
+    ["Programming languages", stack?.languages],
+    ["Frontend frameworks & libraries", stack?.frontend],
+    ["Backend frameworks", stack?.backend],
+    ["Databases", stack?.database],
+    ["Build tools & package managers", stack?.package_managers],
+  ];
+  return <section className="panel technology-stack-panel">
+    <div className="panel-title"><div><span className="panel-title-icon">⌘</span><h2>{title}</h2></div><span className="muted">Detected from repository files</span></div>
+    <div className="technology-stack-grid">{groups.map(([label, values]) => <div className="technology-group" key={label}><h3>{label}</h3>{values?.length ? <div className="technology-tags">{values.map((value) => <span className="technology-tag" key={value}>{value}</span>)}</div> : <p className="muted">None detected</p>}</div>)}</div>
+  </section>;
+}
 
 function App() {
   const [email, setEmail] = useState("");
@@ -32,7 +49,6 @@ function App() {
   const [isAnalyzingRepo, setIsAnalyzingRepo] = useState(false);
   const [repoError, setRepoError] = useState("");
   const [severityFilter, setSeverityFilter] = useState("ALL");
-  const [showScoreGuide, setShowScoreGuide] = useState(false);
   const [sandboxCode, setSandboxCode] = useState(SAMPLE_BUGGY_CODE);
   const [sandboxAnalysis, setSandboxAnalysis] = useState(null);
   const [isAnalyzingSandbox, setIsAnalyzingSandbox] = useState(false);
@@ -162,15 +178,20 @@ function App() {
     }
   }
 
-  const findings = repoAnalysis?.findings || [];
+  const findings = useMemo(() => repoAnalysis?.findings || [], [repoAnalysis]);
   const displayedRepoFindings = findings.filter((finding) => severityFilter === "ALL" || String(finding.severity).toUpperCase() === severityFilter.toUpperCase());
   const severity = repoAnalysis?.severity_breakdown || {};
   const displayName = name || user?.name || (user?.email || email || "Developer").split("@")[0].replace(/[._-]/g, " ");
   const categoryStats = useMemo(() => {
-    const counts = {};
-    findings.forEach((item) => { const key = item.category || "Other"; counts[key] = (counts[key] || 0) + 1; });
-    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  }, [repoAnalysis]);
+  const counts = {};
+  findings.forEach((item) => {
+    const key = item.category || "Other";
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+}, [findings]);
   const mapNodes = useMemo(() => {
     const files = Array.isArray(workspaceFiles) ? workspaceFiles : [];
     const folders = new Set();
@@ -286,7 +307,7 @@ function App() {
     ]);
 
     try {
-      const response = await fetch("http://localhost:8000/repository/ask", {
+      const response = await fetch(`${API_URL}/repository/ask`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -401,7 +422,6 @@ useEffect(() => {
 
 useEffect(() => {
   if (user && activeTab === "dashboard") loadScanHistory();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [user, activeTab]);
 
 
@@ -467,6 +487,7 @@ useEffect(() => {
               <StatCard icon="✓" tone="green" title="Code health" value={repoAnalysis?.health_score != null ? `${repoAnalysis.health_score}%` : "—"} detail={repoAnalysis ? "Latest health score" : "Awaiting your first scan"}/>
               <StatCard icon="▤" tone="blue" title="Reports ready" value={repoAnalysis?.report_markdown ? "1" : "—"} detail={repoAnalysis?.report_markdown ? "Latest report available" : "Reports from your scans"}/>
             </div>
+            {repoAnalysis && <TechnologyStackPanel stack={repoAnalysis.technology_stack} />}
             <section className="panel health-trend-panel">
               <div className="panel-title"><div><span className="panel-title-icon">↗</span><h2>Repository health trend</h2></div><span className="muted">Saved scan history · 0–100</span></div>
               {scanHistoryError ? <div className="notice error">{scanHistoryError}</div> : scanHistory.length === 0 ? <EmptyChart title="No saved scan history yet" text="Run a repository scan. Its real health score will be saved here, and future scans will build the trend."/> : <HealthTrend history={scanHistory} />}
@@ -485,15 +506,24 @@ useEffect(() => {
             {analysisMode === "repository" ? <>
             <section className="panel scan-launch-panel"><form onSubmit={handleAnalyzeRepository} className="scan-form"><label className="field-label" htmlFor="repoPath">GitHub URL or repository directory <span>Paste a public GitHub URL, or enter a local path relative to the project root</span></label><div className="scan-input-row"><span className="input-prefix">⌁</span><input id="repoPath" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="https://github.com/owner/repository or . / backend"/><button className="primary-button" type="submit" disabled={isAnalyzingRepo}>{isAnalyzingRepo ? <><span className="spinner"/> Analyzing…</> : <>Analyze repository <span>→</span></>}</button></div><label className="ai-option"><input type="checkbox" checked={includeAi} onChange={(e) => setIncludeAi(e.target.checked)}/><span><strong>Include AI explanations</strong><small>Optional · Requires GEMINI_API_KEY configured in your backend environment</small></span></label></form>{repoError && <div className="notice error">{repoError}</div>}</section>
             {repoAnalysis ? <>
-              <div className="stats-grid result-stats"><StatCard icon="✓" tone="green" title="Code health score" value={`${repoAnalysis.health_score ?? "—"}/100`} detail={Number(repoAnalysis.health_score) >= 80 ? "Good quality" : Number(repoAnalysis.health_score) >= 50 ? "Room to improve" : "Needs attention"}/><StatCard icon="▱" tone="violet" title="Python files" value={repoAnalysis.total_python_files ?? 0} detail={`${(repoAnalysis.total_python_lines ?? 0).toLocaleString()} lines analyzed`}/><StatCard icon="✹" tone="pink" title="Total findings" value={repoAnalysis.total_findings ?? findings.length} detail="Detected code issues"/><StatCard icon="⌁" tone="orange" title="High / critical" value={(severity.Critical ?? severity.CRITICAL ?? 0) + (severity.High ?? severity.HIGH ?? 0)} detail="Prioritize these findings"/></div>
+              <div className="stats-grid result-stats"><StatCard icon="✓" tone="green" title="Code health score" value={(repoAnalysis.total_analyzed_files ?? 0) === 0 || repoAnalysis.health_score == null ? "N/A" : `${repoAnalysis.health_score}/100`} detail={(repoAnalysis.total_analyzed_files ?? 0) === 0 ? "No supported source files were analyzed" : Number(repoAnalysis.health_score) >= 80 ? "Good quality" : Number(repoAnalysis.health_score) >= 50 ? "Room to improve" : "Needs attention"}/><StatCard icon="▱" tone="violet" title="Source files analyzed" value={repoAnalysis.total_analyzed_files ?? ((repoAnalysis.total_python_files ?? 0) + (repoAnalysis.total_javascript_files ?? 0))} detail={`${repoAnalysis.total_python_files ?? 0} Python · ${repoAnalysis.total_javascript_files ?? 0} JS/TS`}/><StatCard icon="✹" tone="pink" title="Total findings" value={repoAnalysis.total_findings ?? findings.length} detail="Detected code issues"/><StatCard icon="⌁" tone="orange" title="High / critical" value={(severity.Critical ?? severity.CRITICAL ?? 0) + (severity.High ?? severity.HIGH ?? 0)} detail="Prioritize these findings"/></div>
+              <TechnologyStackPanel stack={repoAnalysis.technology_stack} />
               <section className="panel findings-panel"><div className="panel-heading-row"><div><span className="eyebrow">SCAN RESULTS</span><h2>Detailed code findings <span className="count-chip">{displayedRepoFindings.length}</span></h2></div><div className="result-toolbar"><select aria-label="Filter by severity" value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)}>{["ALL", "Critical", "High", "Medium", "Low"].map((item) => <option key={item} value={item}>{item === "ALL" ? "All severities" : item}</option>)}</select><button className="secondary-button" onClick={handleDownloadReport} disabled={!repoAnalysis.report_markdown}>↓ Download report</button></div></div>
-                {displayedRepoFindings.length ? <div className="findings-list">{displayedRepoFindings.map((finding, index) => <FindingCard key={`${finding.file}-${finding.line}-${index}`} finding={finding} index={index} copiedIndex={copiedIndex} onCopy={handleCopyFix}/>)}</div> : <EmptyChart title="No findings match this filter" text="Try another severity filter, or enjoy the clean scan."/>}
+                {displayedRepoFindings.length ? <div className="findings-list">{displayedRepoFindings.map((finding, index) => <FindingCard key={`${finding.file}-${finding.line}-${index}`} finding={finding} index={index} copiedIndex={copiedIndex} onCopy={handleCopyFix}/>)}</div> : (repoAnalysis.total_analyzed_files ?? ((repoAnalysis.total_python_files ?? 0) + (repoAnalysis.total_javascript_files ?? 0))) === 0 ? <EmptyChart title="No supported source files were analyzed" text={`No Python or JavaScript/TypeScript source files were successfully analyzed. JavaScript scan status: ${repoAnalysis.javascript_scan_status || "unknown"}. Zero findings does not mean the repository is bug-free if scanning failed.`}/> : <EmptyChart title="No findings match this filter" text="No findings were reported for the analyzed Python files with the selected severity. Try another severity filter."/>}
               </section>
             </> : <section className="empty-analysis"><div className="empty-illustration">⌁</div><h3>Ready when you are</h3><p>Start a scan to reveal your repository's health score, bug findings, severity breakdown, and suggested fixes.</p><button className="secondary-button" onClick={() => setRepoPath(".")}>Use project root</button></section>}
             </> : <div className="sandbox-layout"><section className="panel sandbox-editor-panel"><div className="panel-title"><div><span className="panel-title-icon">‹›</span><h2>Python code sandbox</h2></div><span className="sandbox-language">Python</span></div><p className="sandbox-intro">Paste a snippet to inspect it for common bug patterns. Analysis runs through your existing FastAPI endpoint.</p><textarea className="sandbox-textarea" value={sandboxCode} onChange={(e) => setSandboxCode(e.target.value)} spellCheck={false} aria-label="Python code snippet"/><div className="sandbox-actions"><button className="primary-button" onClick={handleAnalyzeSnippet} disabled={isAnalyzingSandbox}>{isAnalyzingSandbox ? "Analyzing snippet…" : "Analyze code snippet →"}</button><button className="secondary-button" onClick={() => { setSandboxCode(SAMPLE_BUGGY_CODE); setSandboxAnalysis(null); setSandboxError(""); }}>Load sample</button></div>{sandboxError && <div className="notice error">{sandboxError}</div>}</section><section className="panel sandbox-results"><div className="panel-title"><div><span className="panel-title-icon">✓</span><h2>Snippet findings</h2></div>{sandboxAnalysis && <span className="count-chip">{sandboxAnalysis.findings_count ?? sandboxAnalysis.findings?.length ?? 0}</span>}</div>{!sandboxAnalysis ? <EmptyChart title="Waiting for your snippet" text="Analyze your code to see findings, explanations, and suggested fixes."/> : sandboxAnalysis.findings_count === 0 ? <div className="clean-result"><span>✓</span><strong>Looking good!</strong><p>No issues were reported for this snippet.</p></div> : <div className="findings-list">{(sandboxAnalysis.findings || []).map((finding, index) => <FindingCard key={`${finding.line}-${index}`} finding={finding} index={`sandbox-${index}`} copiedIndex={copiedIndex} onCopy={handleCopyFix}/>)}</div>}</section></div>}
           </>}
 
-          {activeTab === "qa" && <><PageHeading eyebrow="CODE COMPANION" title="Q&A" description="Ask questions about your latest repository scan and get answers grounded in its results."/><section className="panel qa-panel"><div className="qa-welcome"><span className="qa-avatar">✦</span><div><h2>Ask RepoGuide</h2><p>{repoAnalysis ? `I'm ready to help you understand ${repoAnalysis.repository_name || "your latest scan"}.` : "Run a repository analysis first to unlock answers based on your own code findings."}</p></div></div><div className="suggested-questions">{["What is my code health score?", "Which issues are most severe?", "How can I fix the findings?"].map((q) => <button key={q} onClick={() => setQuestion(q)}>{q}<span>↗</span></button>)}</div><div className="qa-conversation">{answers.map((item, index) => <div className="qa-pair" key={`${item.question}-${index}`}><div className="question-bubble">{item.question}</div><div className="answer-bubble"><span>✦</span><p>{item.answer}</p></div></div>)}</div><form className="qa-input-row" onSubmit={answerQuestion}><input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about bugs, quality, severity, or fixes…"/><button className="primary-button" type="submit">Ask <span>→</span></button></form><small className="qa-disclaimer">Answers use the latest scan data available in this session. This Q&A page does not execute code or modify files.</small></section></>}
+          {activeTab === "qa" && <><PageHeading eyebrow="CODE COMPANION" title="Q&A" description="Ask questions about your latest repository scan and get answers grounded in its results."/><section className="panel qa-panel"><div className="qa-welcome"><span className="qa-avatar">✦</span><div><h2>Ask RepoGuide</h2><p>{repoAnalysis ? `I'm ready to help you understand ${repoAnalysis.repository_name || "your latest scan"}.` : "Run a repository analysis first to unlock answers based on your own code findings."}</p></div></div><div className="suggested-questions">{["What is my code health score?", "Which issues are most severe?", "How can I fix the findings?"].map((q) => <button key={q} onClick={() => setQuestion(q)}>{q}<span>↗</span></button>)}</div><div className="qa-conversation">{answers.map((item, index) => <div className="qa-pair" key={`${item.question}-${index}`}><div className="question-bubble">{item.question}</div><div className="answer-bubble">
+  <span className="answer-sparkle">✦</span>
+  <div className="markdown-answer">
+    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+      {item.answer}
+    </ReactMarkdown>
+  </div>
+</div>
+</div>)}</div><form className="qa-input-row" onSubmit={answerQuestion}><input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask about bugs, quality, severity, or fixes…"/><button className="primary-button" type="submit">Ask <span>→</span></button></form><small className="qa-disclaimer">Answers use the latest scan data available in this session. This Q&A page does not execute code or modify files.</small></section></>}
 
 {activeTab === "workspace" && <>
   <PageHeading eyebrow="REPOSITORY WORKSPACE" title="Explore your code" description="Browse real repository files, inspect source code, and ask Scout about your code." />
@@ -520,7 +550,15 @@ useEffect(() => {
         {["Explain my repository structure", "What are the most important issues in my scan?", "How can I improve my code health?"].map((q) => <button key={q} type="button" onClick={() => setWorkspaceScoutQuestion(q)}>{q} ↗</button>)}
       </div>
       <div className="workspace-scout-conversation" aria-live="polite">
-        {workspaceScoutAnswers.map((item, index) => <div className="workspace-scout-pair" key={`${item.question}-${index}`}><div className="workspace-scout-question">{item.question}</div><div className="workspace-scout-answer"><strong>✦ Scout</strong><p>{item.answer}</p></div></div>)}
+        {workspaceScoutAnswers.map((item, index) => <div className="workspace-scout-pair" key={`${item.question}-${index}`}><div className="workspace-scout-question">{item.question}</div><div className="workspace-scout-answer">
+  <strong>✦ Scout</strong>
+  <div className="markdown-answer">
+    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+      {item.answer}
+    </ReactMarkdown>
+  </div>
+</div>
+</div>)}
       </div>
       <form className="workspace-scout-form" onSubmit={askScoutInWorkspace}><input value={workspaceScoutQuestion} onChange={(event) => setWorkspaceScoutQuestion(event.target.value)} placeholder="Ask Scout about this repository…" aria-label="Ask Scout"/><button className="primary-button" type="submit" disabled={workspaceScoutLoading || !workspaceScoutQuestion.trim()}>{workspaceScoutLoading ? "Thinking…" : "Ask Scout →"}</button></form>
       <small>Scout uses your existing authenticated repository Q&amp;A endpoint. It does not modify files.</small>
@@ -529,7 +567,7 @@ useEffect(() => {
 </>}
 
 
-          {activeTab === "map" && <><PageHeading eyebrow="CODEBASE EXPLORER" title="Interactive Code Map" description="A constellation-style view of folders, modules, and relationships in your workspace."/><section className="cosmic-map-panel">```jsx
+          {activeTab === "map" && <><PageHeading eyebrow="CODEBASE EXPLORER" title="Interactive Code Map" description="A constellation-style view of folders, modules, and relationships in your workspace."/><section className="cosmic-map-panel">
 <div className="map-topline">
   <div>
     <span className="map-live-dot" />
@@ -554,7 +592,6 @@ useEffect(() => {
     </button>
   </div>
 </div>
-```
 <div className="cosmic-canvas"><div className="nebula nebula-one"/><div className="nebula nebula-two"/>{Array.from({length: 58}, (_, i) => <span key={i} className={`star star-${i % 4}`} style={{left: `${(i * 37 + 9) % 97}%`, top: `${(i * 53 + 7) % 92}%`, animationDelay: `${(i % 9) * -0.4}s`}}/>)}<svg className="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
   {mapNodes
     .filter((node) => node.id !== "root" && node.id !== "back")
@@ -580,7 +617,7 @@ useEffect(() => {
   } else {
     setSelectedMapNode(node);
   }
-}}><span className="node-orb">{node.kind === "root" ? "◇" : node.kind === "folder" ? "▱" : node.kind === "issue" ? "!" : "‹›"}</span><span className="node-label">{node.label}</span></button>)}</div><div className="map-legend"><span><i className="legend-root"/> Repository</span><span><i className="legend-folder"/> Folder</span><span><i className="legend-file"/> File / module</span><span><i className="legend-issue"/> Findings</span></div>{selectedMapNode && <div className="node-inspector"><div><span className="eyebrow">SELECTED NODE</span><h3>{selectedMapNode.label}</h3><p>{selectedMapNode.detail}</p></div><button className="icon-button" onClick={() => setSelectedMapNode(null)} aria-label="Close node details">×</button></div>}<p className="map-footnote">This view currently illustrates the main RepoGuide modules. A full repository-derived dependency graph can be connected as a follow-up to the existing analyzer.</p></section></>}
+}}><span className="node-orb">{node.kind === "root" ? "◇" : node.kind === "folder" ? "▱" : node.kind === "issue" ? "!" : "‹›"}</span><span className="node-label">{node.label}</span></button>)}</div><div className="map-legend"><span><i className="legend-root"/> Repository</span><span><i className="legend-folder"/> Folder</span><span><i className="legend-file"/> File / module</span><span><i className="legend-issue"/> Findings</span></div>{selectedMapNode && <div className="node-inspector"><div><span className="eyebrow">SELECTED NODE</span><h3>{selectedMapNode.label}</h3><p>{selectedMapNode.detail}</p></div><button className="icon-button" onClick={() => setSelectedMapNode(null)} aria-label="Close node details">×</button></div>}<p className="map-footnote">This view shows the actual discovered folder/file hierarchy. Lines indicate parent-folder membership, not verified imports or runtime dependencies.</p></section></>}
 
           {activeTab === "repositories" && <><PageHeading eyebrow="YOUR PROJECTS" title="Repositories" description="Manage the repository path you want RepoGuide to inspect."/><section className="panel repository-card"><div className="repository-icon">▱</div><div className="repository-details"><h2>{repoAnalysis?.repository_name || "Workspace repository"}</h2><p className="muted">{repoPath || "."}</p><div className="repository-meta"><span className="status-pill">{repoAnalysis ? "Analyzed" : "Ready to analyze"}</span>{repoAnalysis && <span>{repoAnalysis.total_python_files ?? 0} Python files · {repoAnalysis.total_findings ?? findings.length} findings</span>}</div></div><button className="primary-button" onClick={() => setActiveTab("scanner")}>{repoAnalysis ? "Scan again" : "Analyze repository"} <span>→</span></button></section><section className="panel path-panel"><h3>Analyze another directory</h3><p>Enter a path inside the backend project's permitted root directory.</p><form className="scan-input-row" onSubmit={handleAnalyzeRepository}><input aria-label="Repository path" value={repoPath} onChange={(e) => setRepoPath(e.target.value)} placeholder="Relative repository path"/><button className="primary-button" disabled={isAnalyzingRepo}>{isAnalyzingRepo ? "Analyzing…" : "Run scan"}</button></form>{repoError && <div className="notice error">{repoError}</div>}</section></>}
 
@@ -623,11 +660,11 @@ function TreeItem({ item, depth, selectedPath, onSelect, renderNodes }) {
 }
 
 function HealthTrend({ history }) {
-  const points = history.filter((item) => Number.isFinite(Number(item.health_score))).slice(-12);
+  const points = history.filter((item) => item.health_score !== null && item.health_score !== undefined && item.health_score !== "" && Number.isFinite(Number(item.health_score))).slice(-12);
   if (!points.length) return <EmptyChart title="Health scores are not available" text="The saved scans do not contain numeric health scores yet. New scans will appear when the analyzer returns them." />;
   const width = 760, height = 210, left = 38, right = 18, top = 18, bottom = 34;
   const x = (index) => points.length === 1 ? width / 2 : left + index * (width - left - right) / (points.length - 1);
-  const y = (score) => top + (100 - Math.max(0, Math.min(100, Number(score)))) * (height - top - bottom) / 100;
+  const y = (score) => top + (100 - Math.max(0, Math.min(100, Number(score)))) * (height - top - bottom) / 100; 
   const polyline = points.map((item, index) => `${x(index)},${y(item.health_score)}`).join(" ");
   return <div className="health-trend-chart"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Repository health score across saved scans" preserveAspectRatio="xMidYMid meet"><line x1={left} y1={y(100)} x2={width-right} y2={y(100)} className="trend-gridline"/><line x1={left} y1={y(50)} x2={width-right} y2={y(50)} className="trend-gridline"/><line x1={left} y1={y(0)} x2={width-right} y2={y(0)} className="trend-gridline"/><text x="4" y={y(100)+4} className="trend-axis-label">100</text><text x="12" y={y(50)+4} className="trend-axis-label">50</text><text x="20" y={y(0)+4} className="trend-axis-label">0</text><polyline points={polyline} className="trend-line"/>{points.map((item,index)=><g key={`${item.scanned_at}-${index}`}><circle cx={x(index)} cy={y(item.health_score)} r="4.5" className="trend-point"><title>{`${item.repository_name}: ${item.health_score}/100`}</title></circle><text x={x(index)} y={height-10} textAnchor="middle" className="trend-axis-label">{item.scanned_at ? new Date(item.scanned_at).toLocaleDateString(undefined,{month:"short",day:"numeric"}) : `Scan ${index+1}`}</text></g>)}</svg><div className="trend-summary"><span>{points.length} real scan{points.length===1?"":"s"} shown</span><strong>Latest: {points[points.length-1].health_score}/100</strong></div></div>;
 }

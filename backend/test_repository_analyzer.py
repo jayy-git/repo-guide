@@ -14,7 +14,7 @@ from backend.repository_analyzer import analyze_repository, scan_repository, par
 
 def test_language_api_failure_is_reported():
     with patch(
-        "repository_analyzer._github_api_request",
+        "backend.repository_analyzer._github_api_request",
         side_effect=[
             (
                 {

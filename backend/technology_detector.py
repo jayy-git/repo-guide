@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from backend.repository_analyzer import IGNORED_DIRECTORIES
 
 def detect_technology_stack(repository_path):
     """Detect technologies using repository files and configuration."""
@@ -124,7 +123,7 @@ def detect_technology_stack(repository_path):
                 pass
 
         # Database indicators
-        if name in {".env", ".env.example"}:
+        if name == ".env.example":
             try:
                 content = path.read_text(
                     encoding="utf-8"

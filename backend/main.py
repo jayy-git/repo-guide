@@ -1,4 +1,4 @@
-﻿import os
+import os
 import shutil
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
@@ -14,15 +14,17 @@ from urllib.request import Request as URLRequest, urlopen
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from pwdlib import PasswordHash
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from starlette.middleware.sessions import SessionMiddleware
 
-from repository_quality_analyzer import analyze_repository_quality
-from repository_analyzer import scan_repository
-from repository_qa import answer_repository_question
+from backend.repository_quality_analyzer import analyze_repository_quality
+from backend.repository_analyzer import scan_repository
+from backend.repository_qa import answer_repository_question
+from backend.groq_qa import answer_with_groq
+from backend.technology_detector import detect_technology_stack
 from backend.bug_analyzer import (
     analyze_python_code,
     analyze_repository_bugs,
@@ -66,12 +68,12 @@ class RepoBugAnalysisRequest(BaseModel):
 
 class RepositoryQuestionRequest(BaseModel):
     repository_path: str = "."
-    question: str
+    question: str = Field(min_length=1, max_length=2000)
 
 
 class SnippetAnalysisRequest(BaseModel):
-    code: str
-    filename: Optional[str] = "snippet.py"
+    code: str = Field(min_length=1, max_length=100_000)
+    filename: Optional[str] = Field(default="snippet.py", max_length=200)
     include_ai: Optional[bool] = False
 
 
@@ -106,17 +108,17 @@ app.add_middleware(
     secret_key=session_secret,
     session_cookie="hackloop_session",
     same_site="lax",
-    https_only=False,
+    https_only=os.getenv("COOKIE_HTTPS_ONLY", "false").lower() in {"1", "true", "yes"},
     max_age=3600,
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
+        origin.strip() for origin in os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+        ).split(",") if origin.strip()
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -245,7 +247,7 @@ def repository_quality_check(request: Request, repository_path: str):
         )
 
 
-MAX_REPOSITORY_ARCHIVE_BYTES = 50 * 1024 * 1024
+MAX_REPOSITORY_ARCHIVE_BYTES = 100 * 1024 * 1024
 MAX_EXTRACTED_REPOSITORY_BYTES = 200 * 1024 * 1024
 MAX_REPOSITORY_FILES = 10000
 
@@ -319,7 +321,7 @@ def _download_github_repository(github_url: str, destination: Path) -> Path:
                 if downloaded > MAX_REPOSITORY_ARCHIVE_BYTES:
                     raise HTTPException(
                         status_code=413,
-                        detail="The repository archive exceeds the 50 MB download limit.",
+                        detail="The repository archive exceeds the 100 MB download limit.",
                     )
                 archive_file.write(chunk)
     except HTTPException:
@@ -362,6 +364,8 @@ def _download_github_repository(github_url: str, destination: Path) -> Path:
                 unix_mode = (member.external_attr >> 16) & 0o170000
                 if unix_mode == 0o120000:
                     continue
+                if member.file_size > 0 and member.compress_size > 0 and member.file_size / member.compress_size > 1000:
+                    raise HTTPException(status_code=413, detail="The repository archive contains a suspiciously compressed file.")
                 extracted_total += member.file_size
                 if extracted_total > MAX_EXTRACTED_REPOSITORY_BYTES:
                     raise HTTPException(status_code=413, detail="The extracted repository exceeds the 200 MB limit.")
@@ -413,6 +417,7 @@ def repository_analyze_bugs(request: Request, payload: RepoBugAnalysisRequest):
                     repository_path=str(repository_path),
                     include_ai_explanations=payload.include_ai,
                 )
+                results["technology_stack"] = detect_technology_stack(str(repository_path))
                 results["report_markdown"] = generate_bug_report_markdown(results)
         else:
             path_candidate = Path(repository_input)
@@ -434,6 +439,7 @@ def repository_analyze_bugs(request: Request, payload: RepoBugAnalysisRequest):
                 repository_path=str(target_path),
                 include_ai_explanations=payload.include_ai,
             )
+            results["technology_stack"] = detect_technology_stack(str(target_path))
             results["report_markdown"] = generate_bug_report_markdown(results)
     except HTTPException:
         raise
@@ -485,25 +491,40 @@ def repository_ask(request: Request, payload: RepositoryQuestionRequest):
             detail="Please log in before asking repository questions."
         )
 
+    repository_input = payload.repository_path.strip() or "."
+    is_github_url = urlparse(repository_input).scheme.lower() in {"http", "https"}
     project_root = Path(__file__).resolve().parent.parent
-    path_candidate = Path(payload.repository_path)
-    target_path = (
-        (project_root / path_candidate).resolve()
-        if not path_candidate.is_absolute()
-        else path_candidate.resolve()
-    )
-
-    if not target_path.is_relative_to(project_root):
-        raise HTTPException(
-            status_code=403,
-            detail="You can only ask questions about repositories inside the project directory."
-        )
 
     try:
-        return answer_repository_question(
+        if is_github_url:
+            # Match the analyzer's supported public-GitHub workflow and keep files temporary.
+            with tempfile.TemporaryDirectory(prefix="repoguide-qa-") as temp_dir:
+                target_path = _download_github_repository(repository_input, Path(temp_dir))
+                fallback = answer_repository_question(str(target_path), payload.question)
+                return answer_with_groq(target_path, payload.question, fallback)
+
+        path_candidate = Path(repository_input)
+        target_path = (
+            (project_root / path_candidate).resolve()
+            if not path_candidate.is_absolute()
+            else path_candidate.resolve()
+        )
+        if not target_path.is_relative_to(project_root):
+            raise HTTPException(
+                status_code=403,
+                detail="You can only ask questions about repositories inside the project directory."
+            )
+        fallback = answer_repository_question(
             repository_path=str(target_path),
             question=payload.question
         )
+        return answer_with_groq(
+            repository_path=target_path,
+            question=payload.question,
+            fallback_result=fallback,
+        )
+    except HTTPException:
+        raise
     except FileNotFoundError:
         raise HTTPException(
             status_code=404,

@@ -2,7 +2,7 @@
 
 ## 1. Project Overview
 
-This repository contains **172 files** identified by RepoGuide's repository scanner.
+This repository contains **175 files** identified by RepoGuide's repository scanner.
 
 This document provides an initial overview of the repository, its technology stack, important files, and setup resources.
 
@@ -98,6 +98,7 @@ Project documentation
 - **email-validator** — `==2.3.0`
 - **ruff** — `>=0.6,<1.0`
 - **radon** — `>=6.0,<7.0`
+- **groq** — `>=0.18,<2.0`
 - **Sphinx** — `==7.2.6`
 - **charset_normalizer** — `>=2,<4`
 - **idna** — `>=2.5,<4`
@@ -142,11 +143,22 @@ The following files provide a starting point for exploring the repository:
 
 This section identifies relationships between Python files based on their import statements.
 
+- `backend/bug_analyzer.py` imports `backend/javascript_analyzer.py`
+- `backend/bug_analyzer.py` imports `backend/repository_analyzer.py`
+- `backend/groq_qa.py` imports `backend/bug_analyzer.py`
+- `backend/groq_qa.py` imports `backend/repository_summary.py`
 - `backend/main - Copy.py` imports `backend/bug_analyzer.py`
 - `backend/main - Copy.py` imports `backend/repository_analyzer.py`
 - `backend/main - Copy.py` imports `backend/repository_qa.py`
 - `backend/main - Copy.py` imports `backend/repository_quality_analyzer.py`
 - `backend/main - Copy.py` imports `requests/src/requests/sessions.py`
+- `backend/main.py` imports `backend/bug_analyzer.py`
+- `backend/main.py` imports `backend/groq_qa.py`
+- `backend/main.py` imports `backend/repository_analyzer.py`
+- `backend/main.py` imports `backend/repository_qa.py`
+- `backend/main.py` imports `backend/repository_quality_analyzer.py`
+- `backend/main.py` imports `backend/technology_detector.py`
+- `backend/main.py` imports `requests/src/requests/sessions.py`
 - `backend/onboarding_generator.py` imports `backend/documentation_validator.py`
 - `backend/onboarding_generator.py` imports `backend/repository_summary.py`
 - `backend/quality_checks.py` imports `backend/repository_analyzer.py`
@@ -161,13 +173,12 @@ This section identifies relationships between Python files based on their import
 - `backend/repository_summary.py` imports `backend/file_analyzer.py`
 - `backend/repository_summary.py` imports `backend/repository_analyzer.py`
 - `backend/repository_summary.py` imports `backend/technology_detector.py`
-- `backend/technology_detector.py` imports `backend/repository_analyzer.py`
 - `backend/test_bug_analyzer.py` imports `backend/bug_analyzer.py`
 - `backend/test_code_relationship_analyzer.py` imports `backend/code_relationship_analyzer.py`
 - `backend/test_dependency_analyzer.py` imports `backend/dependency_analyzer.py`
 - `backend/test_documentation_validator.py` imports `backend/documentation_validator.py`
 - `backend/test_file_analyzer.py` imports `backend/file_analyzer.py`
-- `backend/test_file_analyzer.py` imports `backend/file_analyzer.py`
+- `backend/test_groq_qa.py` imports `backend/groq_qa.py`
 - `backend/test_onboarding_generator.py` imports `backend/onboarding_generator.py`
 - `backend/test_organization_analyzer.py` imports `backend/organization_analyzer.py`
 - `backend/test_quality_checks.py` imports `backend/quality_checks.py`
@@ -288,8 +299,8 @@ This section identifies relationships between Python files based on their import
 - `requests/tests/test_utils.py` imports `requests/src/requests/utils.py`
 - `requests/tests/test_utils.py` imports `requests/tests/compat.py`
 
-**Python files analyzed:** 66
-**Relationships detected:** 145
+**Python files analyzed:** 69
+**Relationships detected:** 155
 
 ## 7. Setup Guidance
 

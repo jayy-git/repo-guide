@@ -161,6 +161,65 @@ def _quality_report(repository_path, files_analyzed, findings):
     }
 
 
+def _fallback_unused_imports(root, file_paths, findings):
+    """Small AST-based F401 fallback used when Ruff is unavailable."""
+    for path in file_paths:
+        try:
+            source = path.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=str(path))
+        except (OSError, UnicodeError, SyntaxError):
+            continue
+        imported = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    bound_name = alias.asname or alias.name.split(".")[0]
+                    imported.append((bound_name, node.lineno))
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    if alias.name != "*":
+                        imported.append((alias.asname or alias.name, node.lineno))
+        used_names = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)}
+        if any(isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets) for node in tree.body):
+            all_node = next(node for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets))
+            if all_node.value and isinstance(all_node.value, (ast.List, ast.Tuple, ast.Set)):
+                used_names.update(item.value for item in all_node.value.elts if isinstance(item, ast.Constant) and isinstance(item.value, str))
+        for name, line in imported:
+            if name not in used_names:
+                findings.append(_quality_finding(
+                    path.relative_to(root).as_posix(), line, "Medium", "Lint",
+                    f"F401: '{name}' imported but unused (fallback check; Ruff unavailable).",
+                    "Remove the unused import or use it in the module.",
+                ))
+
+
+def _fallback_complexity(sources, findings):
+    """Approximate cyclomatic complexity with the Python AST when Radon is unavailable."""
+    branch_types = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.IfExp, ast.ExceptHandler, ast.With, ast.AsyncWith)
+    for file_path, source in sources:
+        try:
+            tree = ast.parse(source, filename=file_path)
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            complexity = 1
+            for child in ast.walk(node):
+                if isinstance(child, branch_types):
+                    complexity += 1
+                elif isinstance(child, ast.BoolOp):
+                    complexity += max(0, len(child.values) - 1)
+                elif isinstance(child, (ast.comprehension,)):
+                    complexity += len(child.ifs)
+            if complexity > COMPLEXITY_THRESHOLD:
+                findings.append(_quality_finding(
+                    file_path, node.lineno, "Medium", "Complexity",
+                    f"Function '{node.name}' has approximate cyclomatic complexity {complexity}, above the threshold of {COMPLEXITY_THRESHOLD} (fallback AST estimate; Radon unavailable).",
+                    "Split the function into smaller functions or simplify its branches.",
+                ))
+
+
 def _run_ruff(root, file_paths, findings):
     if not file_paths:
         return
@@ -194,14 +253,7 @@ def _run_ruff(root, file_paths, findings):
 
     details = result.stderr.strip()
     if "No module named ruff" in details:
-        findings.append(_quality_finding(
-            None,
-            None,
-            "Low",
-            "Tool",
-            "Ruff is not installed in the active Python environment.",
-            "Install Ruff in the backend environment and rerun the analysis.",
-        ))
+        _fallback_unused_imports(root, file_paths, findings)
         return
 
     if result.returncode not in (0, 1):
@@ -269,14 +321,7 @@ def _check_complexity(sources, findings):
         from radon.complexity import cc_visit
         from radon.visitors import Function
     except ImportError:
-        findings.append(_quality_finding(
-            None,
-            None,
-            "Low",
-            "Tool",
-            "Radon is not installed in the active Python environment.",
-            "Install Radon in the backend environment and rerun the analysis.",
-        ))
+        _fallback_complexity(sources, findings)
         return
 
     for file_path, source in sources:

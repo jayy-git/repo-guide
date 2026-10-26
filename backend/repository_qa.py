@@ -41,7 +41,13 @@ def answer_repository_question(repository_path, question):
     elif any(term in q for term in ("how many bug", "how many issue", "bug count", "number of bug", "number of issue", "how many finding", "total finding", "detected bug", "detected issue", "any bug", "any issue", "bugs detected", "issues detected")):
         count = bug_results.get("total_findings", 0)
         breakdown = bug_results.get("severity_breakdown", {})
-        answer = f"The bug analyzer detected {count} finding(s) across {bug_results.get('total_python_files', 0)} Python file(s)."
+        python_files = bug_results.get("total_python_files", 0)
+        javascript_files = bug_results.get("total_javascript_files", 0)
+        answer = (
+            f"The bug analyzer detected {count} finding(s) across "
+            f"{python_files} Python file(s) and "
+            f"{javascript_files} JavaScript/TypeScript file(s)."
+        )
         if breakdown:
             answer += " Severity breakdown: " + ", ".join(f"{level}: {number}" for level, number in breakdown.items()) + "."
         sources = ["backend/bug_analyzer.py"] if (root / "backend/bug_analyzer.py").exists() else ["bug_analyzer.py"]

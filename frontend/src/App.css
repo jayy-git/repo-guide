@@ -240,3 +240,149 @@
   overflow-wrap: anywhere;
   text-align: center;
 }
+
+
+/* Dynamically detected repository technology and statistics */
+.technology-stack-grid, .repository-statistics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.technology-group, .repository-statistics-grid > div { min-width: 0; padding: 14px; border: 1px solid var(--border, rgba(148,163,184,.18)); border-radius: 12px; background: var(--surface-soft, rgba(148,163,184,.04)); }
+.technology-group h3 { margin: 0 0 10px; font-size: .9rem; }
+.technology-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+.technology-tag { padding: 5px 9px; border: 1px solid var(--border, rgba(148,163,184,.2)); border-radius: 999px; font-size: .8rem; }
+.repository-statistics-grid > div { display: flex; flex-direction: column; gap: 8px; }
+.repository-statistics-grid > div span { font-size: .82rem; color: var(--muted, #94a3b8); }
+.repository-statistics-grid > div strong { font-size: 1.45rem; }
+
+/* Formatted AI answers in Q&A and Scout */
+.markdown-answer {
+flex: 1;
+min-width: 0;
+color: var(--text);
+font-size: 12px;
+line-height: 1.75;
+overflow-wrap: anywhere;
+}
+
+.markdown-answer > :first-child {
+margin-top: 0;
+}
+
+.markdown-answer > :last-child {
+margin-bottom: 0;
+}
+
+.markdown-answer h1,
+.markdown-answer h2,
+.markdown-answer h3,
+.markdown-answer h4 {
+color: var(--text);
+font-weight: 700;
+line-height: 1.4;
+margin: 16px 0 8px;
+}
+
+.markdown-answer h1 {
+font-size: 18px;
+}
+
+.markdown-answer h2 {
+font-size: 16px;
+}
+
+.markdown-answer h3,
+.markdown-answer h4 {
+font-size: 13px;
+}
+
+.markdown-answer p {
+margin: 8px 0;
+line-height: 1.75;
+}
+
+.markdown-answer ul,
+.markdown-answer ol {
+padding-left: 23px;
+margin: 8px 0;
+}
+
+.markdown-answer li {
+margin: 4px 0;
+padding-left: 3px;
+}
+
+.markdown-answer strong {
+color: var(--text);
+font-weight: 700;
+}
+
+.markdown-answer a {
+color: var(--accent);
+overflow-wrap: anywhere;
+}
+
+.markdown-answer blockquote {
+margin: 10px 0;
+padding: 8px 13px;
+border-left: 3px solid var(--accent);
+background: var(--accent-soft);
+color: var(--muted);
+border-radius: 0 7px 7px 0;
+}
+
+.markdown-answer code {
+padding: 2px 5px;
+border-radius: 5px;
+background: var(--accent-soft);
+color: var(--accent-2);
+font-family: Consolas, "Courier New", monospace;
+font-size: 0.92em;
+overflow-wrap: anywhere;
+}
+
+.markdown-answer pre {
+max-width: 100%;
+overflow-x: auto;
+margin: 10px 0;
+padding: 12px;
+border: 1px solid var(--border);
+border-radius: 8px;
+background: var(--app-bg);
+white-space: pre;
+}
+
+.markdown-answer pre code {
+padding: 0;
+background: transparent;
+color: var(--text);
+overflow-wrap: normal;
+}
+
+.markdown-answer table {
+display: block;
+width: 100%;
+max-width: 100%;
+overflow-x: auto;
+border-collapse: collapse;
+margin: 12px 0;
+font-size: 11px;
+}
+
+.markdown-answer th,
+.markdown-answer td {
+padding: 8px 10px;
+border: 1px solid var(--border);
+text-align: left;
+vertical-align: top;
+}
+
+.markdown-answer th {
+background: var(--accent-soft);
+font-weight: 700;
+}
+
+.markdown-answer tr:nth-child(even) {
+background: var(--surface);
+}
+
+.answer-sparkle {
+flex-shrink: 0;
+}

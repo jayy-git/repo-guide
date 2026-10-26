@@ -1,4 +1,4 @@
-﻿"""
+"""
 bug_analyzer.py
 ===============
 Role: Backend Bug-Detection and Code-Improvement Engine
@@ -251,7 +251,7 @@ class CodeBugVisitor(ast.NodeVisitor):
                     )
         self.generic_visit(node)
 
-    # Rule 4: Resource Leak â€” open() called without with statement
+    # Rule 4: Resource Leak — open() called without with statement
     def visit_With(self, node: ast.With):
         self._inside_with_open = True
         self.generic_visit(node)
@@ -556,6 +556,7 @@ def analyze_repository_bugs(
         # Analyze JavaScript and TypeScript files separately.
     js_results = analyze_javascript_repository(str(root))
     js_findings = js_results.get("javascript_findings", [])
+
     # Combine findings from both analyzers.
     combined_findings = all_findings + js_findings
 
@@ -809,7 +810,5 @@ if __name__ == "__main__":
                 print("\nClean repository! No bugs detected.")
     except Exception as exc:
         print(f"Error scanning '{target}': {exc}")
-
-
 
 
