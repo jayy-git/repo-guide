@@ -20,12 +20,12 @@ from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from starlette.middleware.sessions import SessionMiddleware
 
-from backend.repository_quality_analyzer import analyze_repository_quality
-from backend.repository_analyzer import scan_repository
-from backend.repository_qa import answer_repository_question
-from backend.groq_qa import answer_with_groq
-from backend.technology_detector import detect_technology_stack
-from backend.bug_analyzer import (
+from repository_quality_analyzer import analyze_repository_quality
+from repository_analyzer import scan_repository
+from repository_qa import answer_repository_question
+from groq_qa import answer_with_groq
+from technology_detector import detect_technology_stack
+from bug_analyzer import (
     analyze_python_code,
     analyze_repository_bugs,
     generate_bug_report_markdown,
