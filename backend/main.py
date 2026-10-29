@@ -25,7 +25,7 @@ from backend.repository_analyzer import scan_repository
 from backend.repository_qa import answer_repository_question
 from backend.groq_qa import answer_with_groq
 from backend.technology_detector import detect_technology_stack
-from bug_analyzer import (
+from backend.bug_analyzer import (
     analyze_python_code,
     analyze_repository_bugs,
     generate_bug_report_markdown,
